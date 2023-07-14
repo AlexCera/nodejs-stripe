@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-commerce</title>
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
+        crossorigin="anonymous"></script>
+    <!-- JQuery -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.0/jquery.min.js"
+        integrity="sha512-3gJwYpMe3QewGELv8k/BX9vcqhryRdzRMxVfq6ngyWXwo03GFEzjsUm8Q7RZcHPHksttq7/GFoxjCVUjkjvPdw=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+
+<body class="bg-light">
+    <div class="container vh-100 ">
+        <div class="card text-center mt-4">
+            <div class="card-header bg-light">
+                <div class="row justify-content-around align-items-center">
+                    <div class="col-10 text-start">
+                        <h1>Shopping cart</h1>
+                    </div>
+                    <div class="col-2">
+                        <button type="button" class="btn btn-sm btn-outline-dark" id="btnAddRow">Agregar
+                            producto</button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+
+                <table class="table table-striped border">
+                    <thead class="table table-dark table-striped">
+                        <tr>
+                            <th scope="col">No.</th>
+                            <th scope="col">Producto</th>
+                            <th scope="col">Precio</th>
+                            <th scope="col">Cantidad</th>
+                            <th scope="col">Total</th>
+                            <th scope="col">*</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cart-table-body">
+                    </tbody>
+                </table>
+
+            </div>
+            <div class="card-footer text-end">
+                <div class="row justify-content-around">
+                    <div class="col-8 text-start">
+                        <h2>Total a pagar: <i class=" text-secondary" id="cart-total">$</i></h2>
+                    </div>
+                    <div class="col-4">
+                        <button class="btn btn-success" id="btn-pay">Procesar pago</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</body>
+
+</html>
+
+<script>
+    let total = 0;
+    let productList = [{
+        id: 0,
+        name: "",
+        price: 0,
+        quantity: 1,
+        total: 0
+    }];
+    let tableRows = "";
+
+    $(document).ready(function () {
+        writeOnTableBody(productList)
+
+        $("#btn-pay").click(function () {
+            if (total > 0) {
+                Swal.fire({
+                    title: '¿Todo listo?',
+                    text: "Serás redirigido a la plataforma de pago, asegúrate que todo está bien, gracias.",
+                    icon: 'question',
+                    confirmButtonColor: '#3085d6',
+                    confirmButtonText: 'Continuar',
+                    showCancelButton: true,
+                    cancelButtonColor: '#d33',
+                    cancelButtonText: 'Cancelar'
+                }).then(async (result) => {
+                    if (result.isConfirmed) {
+                        try {
+                            const response = await fetch("http://localhost:3000/create-checkout-session",
+                                {
+                                    method: 'POST',
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ products: productList })
+                                }
+                            )
+                            const data = await response.json()
+                            window.location.href = data.url
+
+                        } catch (error) {
+                            console.log('error', error);
+                            Swal.fire({
+                                title: 'Ocurrio un error inesperado',
+                                text: "Vuelve a intentarlo luego.",
+                                icon: 'error',
+                                confirmButtonColor: '#3085d6',
+                                confirmButtonText: 'Continuar'
+                            })
+                        }
+                    }
+                })
+            } else {
+                Swal.fire({
+                    title: 'Advertencia',
+                    text: "No hay productos para poder procesar la compra.",
+                    icon: 'warning',
+                    confirmButtonColor: '#3085d6',
+                    confirmButtonText: 'Continuar'
+                })
+            }
+
+        })
+
+    })
+
+    $("#cart-table-body").on("change", ".product-name", function () {
+        let index = $(this).parent().parent().attr('id');
+        productList[index].name = $(this).val()
+        console.log(productList);
+    })
+
+    $("#cart-table-body").on("change", ".product-price", function () {
+        let index = parseInt($(this).parent().parent().attr('id'));
+        productList[index].price = parseInt($(this).val())
+        totalByProduct(index)
+    })
+
+    $("#cart-table-body").on("keyup", ".product-price", function () {
+        let index = parseInt($(this).parent().parent().attr('id'));
+        totalByProduct(index)
+    })
+
+    $("#cart-table-body").on("change", ".product-quantity", function () {
+        let index = parseInt($(this).parent().parent().attr('id'));
+        productList[index].quantity = parseInt($(this).val())
+        totalByProduct(index)
+    })
+
+    $("#cart-table-body").on("keyup", ".product-quantity", function () {
+        let index = parseInt($(this).parent().parent().attr('id'));
+        totalByProduct(index)
+    })
+
+
+    /* Remover producto */
+    $("#cart-table-body").on("click", ".btn-remove-product", function () {
+        let itemToRemove = parseInt($(this).attr('id'));
+        Swal.fire({
+            title: '¿Estas seguro?',
+            text: "Quitar el producto del carrito",
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            confirmButtonText: 'Continuar',
+            cancelButtonColor: '',
+            cancelButtonText: 'Cancelar',
+        }).then((result) => {
+            if (result.isConfirmed) {
+                productList = productList.filter(item => item.id !== itemToRemove)
+                writeOnTableBody()
+            }
+        })
+    })
+
+    /* Agregar producto */
+    $("#btnAddRow").click(function () {
+        if (productList.length < 5) {
+            productList.push({ id: (productList.length), name: "", price: 0, quantity: 1, total: 0 })
+            writeOnTableBody()
+            $("#cart-table-body tr .product-name").focus();
+        } else {
+            Swal.fire({
+                title: 'Importante',
+                text: "No puedes agregar más producto, has llegado al máximo de productos permitidos.",
+                icon: 'info',
+                confirmButtonColor: '#3085d6',
+                confirmButtonText: 'Aceptar'
+            })
+        }
+    })
+
+    /* $("#cart-table-body").on("keyup", "input", function (e) {
+        switch (e.keyCode) {
+            case 9:
+                break;
+            case 13:
+                break;
+        }
+    }); */
+
+    function writeOnTableBody() {
+        tableRows = ""
+        productList.map((item, index) => {
+            tableRows += `<tr id="${item.id}">
+                <th scope="row">${index + 1}</th>
+                <td>
+                    <input value="${item.name}" class="product-name form-control form-control-sm" type="text" placeholder="Product">
+                </td>
+                <td>
+                    <input value="${item.price}" class="product-price form-control form-control-sm" type="number" min="0" step="50">
+                </td>
+                <td>
+                    <input value="${item.quantity}" class="product-quantity form-control form-control-sm" type="number" value="1" min="1" max="10">
+                </td>
+                <td>
+                    <input value="$ ${new Intl.NumberFormat("es-CO").format(item.total)}" class="product-total form-control form-control-sm" type="text" readonly>
+                </td>
+                <td>
+                    <button type="button" id="${item.id}" class="btn btn-sm btn-danger btn-remove-product">Quitar</button>
+                </td>
+            </tr>`;
+        })
+        totalByProduct()
+        $("#cart-table-body").html("")
+        $("#cart-table-body").html(tableRows)
+    }
+
+    function totalByProduct(index) {
+        if (index >= 0) {
+            productList[index].total = productList[index].price * productList[index].quantity;
+            $(`#cart-table-body tr#${index} .product-total`).val(`$ ${new Intl.NumberFormat("es-CO").format(productList[index].total)}`);
+        }
+        total = 0;
+        productList.map(item => total += item.total)
+        $("#cart-total").html(`$ ${new Intl.NumberFormat("es-CO").format(total)}`);
+    }
+
+</script>
