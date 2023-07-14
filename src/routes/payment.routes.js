@@ -1,9 +1,9 @@
-import { Router } from "express";
+import express, { Router } from "express";
+import { createSession } from "../controllers/payment.controller.js";
+import * as path from 'path';
 
 const router = Router();
 
-router.get('/create-checkout-session', (req, res) => res.send('checkout'));
-router.get('/success', (req, res) => res.send('success'));
-router.get('/cancel', (req, res) => res.send('cancel'));
+router.post('/create-checkout-session', createSession);
 
 export default router;
